@@ -1,5 +1,6 @@
 var truss = {
-	joints: []
+	joints: [],
+	members: []
 };
 
 var joint = {
@@ -7,3 +8,11 @@ var joint = {
 	posX: 0,
 	posY: 0
 };
+
+var member = {
+	force: 0,
+	compression: false,
+	tension: false,
+	firJoint: null,
+	secJoint: null
+}
