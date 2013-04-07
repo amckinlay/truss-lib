@@ -1,0 +1,24 @@
+{
+  "name": "truss-lib",
+  "version": "0.0.0",
+  "author": "Andrew McKinlay <mckinlay.andrew@gmail.com>",
+  "description": "2-D truss simulator library",
+  "main": "truss.js",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/amckinlay/truss-lib.git"
+  },
+  "keywords": [
+    "truss",
+    "engineering",
+    "simulator",
+    "simulation"
+  ],
+  "dependencies" : {
+    "underscore": "1.4.x",
+    "sylvester": "0.2.x"
+  },
+  "devDependencies": {},
+  "bundledDependencies": [],
+  "license": "MIT"
+}
