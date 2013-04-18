@@ -158,9 +158,9 @@
         },
         // Geometric angle from joint, does not consider internal force
         angle: function(fromJoint) {
-            if (!this.isAttached(joint)) throw "Joint not attached to member";
-            var xToOtherJoint = this.otherJoint(joint).x - joint.x;
-            var yToOtherJoint = this.otherJoint(joint).y - joint.y;
+            if (!this.isAttached(fromJoint)) throw "Joint not attached to member";
+            var xToOtherJoint = this.otherJoint(fromJoint).x - fromJoint.x;
+            var yToOtherJoint = this.otherJoint(fromJoint).y - fromJoint.y;
             return Math.atan2(yToOtherJoint, xToOtherJoint);
         },
         forceOn: function(joint) {
