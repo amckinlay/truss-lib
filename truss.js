@@ -1,3 +1,7 @@
+// TODO: add defined method in addition/replacement to known
+// TODO: determine if getters/setters are doing too much
+// TODO: clean up all the error throwing
+
 (function() {
     var root = this;
 
@@ -31,76 +35,44 @@
         },
         // Solve truss
         solve: function() {
-            // Map: unkown force/brace -> matrix column
+            // Map: unkown member/force -> matrix column
             var columnMap = {};
-            // Map: joint/brace -> matrix row
+            // Map: joint -> matrix row
             var rowMap = {};
             // Fill columnMap
             var columnCount = 0;
-            for (var unknown in this.unknowns()) columnMap[unknown] = columnCount++;
+            for (var unknown in this.unknowns()) columnMap[unknown] = ++columnCount;
             // Fill rowMap
             var rowCount = 0;
-            for (var joint in this.joints) rowMap[joint] = rowCount++;
+            for (var joint in this.joints) rowMap[joint] = ++rowCount, rowCount++;
             // Form initial matrix with zeros
-            var A = [];
-            var zeros = [];
-            for (var i = 0; i < columnCount; ++i) zeros.push(0);
-            for (var i = 0; i < rowCount; ++i) A.push(_.clone(zeros));
+            var A = Matrix.Zero(rowCount, columnCount);
             // Form initial solution vector
-            var b = [];
-            for (var i = 0; i < rowCount; ++i) b.push(0);
-            // Fill initial matrix
-            for (var joint in rowMap) {
+            var b = Matrix.Zero(rowCount, 1);
+            // Fill initial matrix and solution vector
+            for (var joint in this.joints) {
                 for (var unknown in joint.unknowns()) {
-                    var x = 0;
-                    var y = 0;
-                    if (t.member.isPrototypeOf(unknown)) {
-                        x = unknown.xDirTo(joint);
-                        y = unknown.yDirTo(joint);
-                    } else {
-                        x = Math.cos(unknown.angle);
-                        y = Math.sin(unknown.angle);
-                    }
-                    A[rowMap[joint] * 2][columnMap[unknown]] = x;
-                    A[rowMap[joint] * 2 + 1][columnMap[unknown]] = y;
+                    A.elements[rowMap[joint]][columnMap[unknown]] = cos(unknown.angle);
+                    A.elements[rowMap[joint] + 1][columnMap[unknown]] = sin(unknown.angle);
                 }
-                var x = 0;
-                var y = 0;
+                var xKnown = 0;
+                var yKnown = 0;
                 for (var known in joint.knowns()) {
-                    if (t.member.isPrototypeOf(known)) {
-                        x += known.xForceOn(joint);
-                        y += known.yForceOn(joint);
-                    } else {
-                        x += known.x();
-                        y += known.y();
-                    }
+                        x += known.forceOn(joint).x();
+                        y += known.forceOn(joint).y();
                 }
-                b[rowMap[joint] * 2] = x;
-                b[rowMap[joint] * 2 + 1] = y;
+                b.elements[rowMap[joint]][0] = x;
+                b.elements[rowMap[joint] + 1][0] = y;
             }
-            // Form matrix
-            var A = $M(A);
-            // Form solution vector
-            var b = $V(b);
             // Get magnitudes of unknowns
+            columnMap = _.invert(columnMap);
             var sol = A.inv().multiply(b);
             for (var s in sol) {
-                var unknown = unknowns[s];
-                if (t.force.isPrototypeOf(unknown) || t.brace.isPrototypeOf(unknown)) {
-                    unknown.magnitude = sol[s];
-                } else {
-                    if (sol[s] >= 0) {
-                        unknown.compression = true;
-                    }
-                    else {
-                        unknown.tension = false;
-                    }
-                    unknown.magnitude = sol[s];
-                }
+                var unknown = columnMap[s];
+                unknown.magnitude = sol.e(s, 1);
             }
-            // TODO: use Sylvester from beginning of function (can use Sylvester to fill zeros)
             // TODO: divide work into smaller functions
-            // TODO: implement system to force positive magnitudes for forces/braces
+            // Correct everything above by not using for-loops
         }
      };
 
@@ -138,32 +110,10 @@
         },
         // Collect known forces
         knowns: function() {
-            var knowns = [];
-            for (var mem in this.members) {
-                var mem = this.members[mem];
-                if (mem.known()) knowns.push(mem);
-            }
-            for (var exF in this.exForces) {
-                var exF = this.exForces[exF];
-                if (exF.known()) knowns.push(exF);
-            }
-            // Forward consideration for subtype brace
-            if (t.brace.isPrototypeOf(this)) if (this.known()) knowns.push(this);
-            return knowns;
+            return _.filter(_.union(this.members, this.exForce), function(elem) {return elem.known();});
         },
         unknowns: function() {
-            var unknowns = [];
-            for (var mem in this.members) {
-                var mem = this.members[mem];
-                if (!mem.known()) unknowns.push(mem);
-            }
-            for (var exF in this.exForces) {
-                var exF = this.exForces[exF];
-                if (!exF.known()) unknowns.push(exF);
-            }
-            // Forward consideration for subtype brace
-            if (t.brace.isPrototypeOf(this)) if (this.known()) knowns.push(this);
-            return knowns;
+            return _.filter(_.union(this.members, this.exForce), function(elem) {return !elem.known();});
         }
     };
 
@@ -171,12 +121,13 @@
         get magnitude() {return magnitude;}, // Magnitude of internal force
         set magnitude(val) {
             if (!_.isFinite(val)) throw "Magnitude of member must be finite number";
+            try {compression} catch(e) {compression = true;}
             if (val < 0) {
                 magnitude = -val;
                 compression = !compression;
             } else magnitude = val;
         },
-        get compression() {return compression;},
+        get compression() {try {return compression;} catch (e) {return false;}},
         set compression(val) {if (!_.isBoolean(val)) throw "Compression of member must be boolean"; compression = val;},
         get firJoint() {return firJoint;},
         set firJoint(val) {if (!t.joint.isPrototypeOf(val)) throw "firJoint of member must be joint"; firJoint = val;},
@@ -184,7 +135,7 @@
         set secJoint(val) {if (!t.joint.isPrototypeOf(val)) throw "secJoint of member must be joint"; secJoint = val;},
         known: function() {
             var known = false;
-            if (this.magnitude && this.comnpression !== null) known = true;
+            if (this.magnitude) known = true;
             return known;
         },
         isAttached: function(joint) {
@@ -204,13 +155,23 @@
             var yDis = this.firJoint.y - this.secJoint.y;
             return Math.sqrt(Math.pow(xDis, 2), Math.pow(yDis, 2));
         },
-        forceOn: function(joint) {
+        // Geometric angle from joint, does not consider internal force
+        angle: function(fromJoint) {
             if (!this.isAttached(joint)) throw "Joint not attached to member";
+            var xToOtherJoint = this.otherJoint(joint).x - joint.x;
+            var yToOtherJoint = this.otherJoint(joint).y - joint.y;
+            return Math.atan2(yToOtherJoint, xToOtherJoint);
+        },
+        forceOn: function(joint) {
             var force = Object.create(t.force);
             force.magnitude = this.magnitude;
-            var yDisplacement = joint.y - this.otherJoint(joint).y;
-            var xDisplacement = joint.x - this.otherJoint(joint).x;
-            force.angle = Math.atan2(yDisplacement, xDisplacement);
+            var angle = this.angle(joint);
+            // Consider internal force
+            if (this.compression === true) force.angle = angle;
+            else {
+                if (angle < -Math.PI) force.angle = angle + 2 * Math.PI;
+                else if (angle > Math.PI) force.angle = angle - 2 * Math.PI;
+            }
             var attachedJoint = joint;
             force.forceOn = function(joint) {if (joint !== attachedJoint) throw "Force does not act on given joint"; return this;};
             return force;
