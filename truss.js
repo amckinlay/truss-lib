@@ -1,6 +1,8 @@
 // TODO: add defined method in addition/replacement to known
 // TODO: determine if getters/setters are doing too much
 // TODO: clean up all the error throwing
+// TODO: consider using unit vectors instead of angles
+// TODO: correct everything incorrectly using for-loops
 
 (function() {
     var root = this;
@@ -72,7 +74,7 @@
                 unknown.magnitude = sol.e(s, 1);
             }
             // TODO: divide work into smaller functions
-            // Correct everything above by not using for-loops
+            // TODO: use vectors instead of column matrices
         }
      };
 
@@ -121,7 +123,6 @@
         get magnitude() {return magnitude;}, // Magnitude of internal force
         set magnitude(val) {
             if (!_.isFinite(val)) throw "Magnitude of member must be finite number";
-            try {compression} catch(e) {compression = true;}
             if (val < 0) {
                 magnitude = -val;
                 compression = !compression;
@@ -166,9 +167,10 @@
             var force = Object.create(t.force);
             force.magnitude = this.magnitude;
             var angle = this.angle(joint);
-            // Consider internal force
+            // Consider angle of internal force
             if (this.compression === true) force.angle = angle;
             else {
+                // TODO: is there a smarter way than this? Is this necessary?
                 if (angle < -Math.PI) force.angle = angle + 2 * Math.PI;
                 else if (angle > Math.PI) force.angle = angle - 2 * Math.PI;
             }
@@ -190,6 +192,7 @@
         get angle() {return angle;},
         set angle(val) {
             if (!_.isFinite(val)) throw "Angle of force must be finite number";
+            // TODO: is there a smarter way than this? Is this necessary?
             if (val < -Math.PI) angle = val + 2 * Math.PI;
             else if (val > Math.PI) angle = val - 2 * Math.PI;
             else angle = val;
