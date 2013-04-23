@@ -106,8 +106,8 @@
             return added;
         },
         known: function() {
-            var known = false;
-            if (x && y) return true;
+            var known = true;
+            try {this.x; this.y;} catche (e) {return false;}
             return known;
         },
         // Collect known forces
@@ -128,15 +128,20 @@
                 compression = !compression;
             } else magnitude = val;
         },
+        // Members in tension by default
         get compression() {try {return compression;} catch (e) {return false;}},
-        set compression(val) {if (!_.isBoolean(val)) throw "Compression of member must be boolean"; compression = val;},
+        set compression(val) {
+            if (!_.isBoolean(val)) throw "Compression of member must be boolean";
+            try (magnitude) catch (e) {throw "Set magnitude before compression";}
+            compression = val;
+        },
         get firJoint() {return firJoint;},
         set firJoint(val) {if (!t.joint.isPrototypeOf(val)) throw "firJoint of member must be joint"; firJoint = val;},
         get secJoint() {return secJoint;},
         set secJoint(val) {if (!t.joint.isPrototypeOf(val)) throw "secJoint of member must be joint"; secJoint = val;},
         known: function() {
-            var known = false;
-            if (this.magnitude) known = true;
+            var known = true;
+            try (this.magnitude) catch (e) {known = false};
             return known;
         },
         isAttached: function(joint) {
@@ -200,8 +205,8 @@
         // get joint() {return joint;},
         // set joint(val) {if (!t.joint.isPrototypeOf(val)) throw "Joint of force must be joint"; joint = val;}
         known: function() {
-            var known = false;
-            if (magnitude && angle) known = true;
+            var known = true;
+            try {this.magnitude; this.angle;} catch (e) {known = true;}
             return known;
         },
         x: function() {
