@@ -1,8 +1,14 @@
 // TODO: add defined method in addition/replacement to known
 // TODO: determine if getters/setters are doing too much
-// TODO: clean up all the error throwing
+// TODO: clean up all the error throwing (e.g., should addMember be checking if member is already added?)
 // TODO: consider using unit vectors instead of angles
 // TODO: correct everything incorrectly using for-loops
+// Question: should calling code check conditions, or should library check conditions and throw errors?\\
+// Should there be an addMember function for truss?
+// Should there be an addJoint function for member?
+// TODO: consider chaining
+// TODO: performance sucks, since javascript object does not support objects for keys
+// TODO: consider adding CAS
 
 (function() {
     var root = this;
@@ -14,7 +20,7 @@
         addJoint: function(joint) {
             var added = false;
             if (!t.joint.isPrototypeOf(joint)) throw "joint of truss must be joint";
-            if (!_.contains(joints, joint)) {
+            if (!_.contains(this.joints, joint)) {
                 this.joints.push(joint);
                 added = true;
             }
@@ -26,63 +32,67 @@
             return known;
         },
         knowns: function() {
-            var knowns = [];
-            for (var joint in this.joints) _.union(knowns, joint.knowns());
-            return knowns;
+            return _.reduce(
+                this.joints,
+                function(memo, joint) {
+                    return _.union(memo, joint.knowns());
+                },
+                []
+            );
         },
-        unkowns: function() {
-            var unknowns = [];
-            for (var joint in this.joints) _.union(unknowns, joint.unknowns());
-            return unknowns;
+        unknowns: function() {
+            return _.reduce(
+                this.joints,
+                function(memo, joint) {
+                    return _.union(memo, joint.unknowns());
+                },
+                []
+            );
         },
         // Solve truss
         solve: function() {
-            // Map: unkown member/force -> matrix column
-            var columnMap = {};
-            // Map: joint -> matrix row
-            var rowMap = {};
+            var columnMap = {}; // Map: matrix column -> unknown member/force
+            var rowMap = {}; // Map: matrix row -> joint
             // Fill columnMap
             var columnCount = 0;
-            for (var unknown in this.unknowns()) columnMap[unknown] = ++columnCount;
+            _.each(this.unknowns(), function(unknown) {columnMap[++columnCount] = unknown;});
             // Fill rowMap
             var rowCount = 0;
-            for (var joint in this.joints) rowMap[joint] = ++rowCount, rowCount++;
-            // Form initial matrix with zeros
-            var A = Matrix.Zero(rowCount, columnCount);
-            // Form initial solution vector
-            var b = Matrix.Zero(rowCount, 1);
-            // Fill initial matrix and solution vector
-            for (var joint in this.joints) {
-                for (var unknown in joint.unknowns()) {
-                    A.elements[rowMap[joint]][columnMap[unknown]] = cos(unknown.angle);
-                    A.elements[rowMap[joint] + 1][columnMap[unknown]] = sin(unknown.angle);
-                }
-                var xKnown = 0;
-                var yKnown = 0;
-                for (var known in joint.knowns()) {
-                        x += known.forceOn(joint).x();
-                        y += known.forceOn(joint).y();
-                }
-                b.elements[rowMap[joint]][0] = x;
-                b.elements[rowMap[joint] + 1][0] = y;
-            }
-            // Get magnitudes of unknowns
-            columnMap = _.invert(columnMap);
+            _.each(this.joints, function(joint) {rowMap[++rowCount, rowCount++] = joint;});
+            var A = Matrix.Zero(rowCount, columnCount); // Form initial matrix
+            var b = Vector.Zero(rowCount); // Form initial solution vector
+            // Fill A and b
+            _.each(rowMap, function(joint, row) {
+                row = row - 1; // Math indices to array indices
+                _.each(columnMap, function(unknown, column) { // Fill A with unknows
+                    column = column - 1; // Math indices to array indices
+                    if (_.contains(joint.unknowns(), unknown)) {
+                        //console.log(unknown.angle);
+                        A.elements[row][column] = Math.cos(unknown.getAngle(joint)); // x
+                        A.elements[row + 1][column] = Math.sin(unknown.getAngle(joint)); // y
+                    }
+                });
+                _.each(joint.knowns(), function(known) { // Fill b with knowns
+                    b.elements[row] += -known.forceOn(joint).x(); // x
+                    b.elements[row + 1] += -known.forceOn(joint).y(); // y
+                });
+            });
+            console.log(A.elements);
+            console.log(b.elements);
+            // Solve for magnitudes of unknowns
             var sol = A.inv().multiply(b);
-            for (var s in sol) {
-                var unknown = columnMap[s];
-                unknown.magnitude = sol.e(s, 1);
-            }
-            // TODO: divide work into smaller functions
-            // TODO: use vectors instead of column matrices
+            sol.each(function(mag, index) {
+                columnMap[index].magnitude = mag;
+            });
+            console.log(sol.elements);
         }
      };
 
     t.joint = {
-        get x() {return x;},
-        set x(val) {if (!_.isFinite(val)) throw "x-value of joint must be finite number"; x = val;},
-        get y() {return y;},
-        set y(val) {if (!_.isFinite(val)) throw "y-value of joint must be finite number"; y = val;},
+        get x() {return this._x;},
+        set x(val) {if (!_.isFinite(val)) throw "x-value of joint must be finite number"; this._x = val;},
+        get y() {return this._y;},
+        set y(val) {if (!_.isFinite(val)) throw "y-value of joint must be finite number"; this._y = val;},
         // Attached members
         get members() {return this._members = this._members || [];},
         // External forces
@@ -105,43 +115,50 @@
             }
             return added;
         },
+        // Should be "defined" not known
         known: function() {
             var known = true;
-            try {this.x; this.y;} catche (e) {return false;}
+            if (this.x === undefined || this.y === undefined) known = false;
             return known;
         },
         // Collect known forces
         knowns: function() {
-            return _.filter(_.union(this.members, this.exForce), function(elem) {return elem.known();});
+            return _.filter(
+                _.union(this.members, this.exForces),
+                function(elem) {return elem.known();}
+            );
         },
         unknowns: function() {
-            return _.filter(_.union(this.members, this.exForce), function(elem) {return !elem.known();});
+            return _.filter(
+                _.union(this.members, this.exForces),
+                function(elem) {return !elem.known();}
+            );
         }
     };
 
     t.member = {
-        get magnitude() {return magnitude;}, // Magnitude of internal force
+        get magnitude() {return this._magnitude;}, // Magnitude of internal force
         set magnitude(val) {
             if (!_.isFinite(val)) throw "Magnitude of member must be finite number";
             if (val < 0) {
-                magnitude = -val;
-                compression = !compression;
-            } else magnitude = val;
+                this._magnitude = -val;
+                this.compression = !this.compression;
+            } else this._magnitude = val;
         },
         // Members in tension by default
-        get compression() {try {return compression;} catch (e) {return false;}},
+        get compression() {if (this._compression === undefined) return false; else return this._compression},
         set compression(val) {
             if (!_.isBoolean(val)) throw "Compression of member must be boolean";
-            try (magnitude) catch (e) {throw "Set magnitude before compression";}
-            compression = val;
+            if (this.magnitude === undefined) {throw "Set magnitude before compression";}
+            this._compression = val;
         },
-        get firJoint() {return firJoint;},
-        set firJoint(val) {if (!t.joint.isPrototypeOf(val)) throw "firJoint of member must be joint"; firJoint = val;},
-        get secJoint() {return secJoint;},
-        set secJoint(val) {if (!t.joint.isPrototypeOf(val)) throw "secJoint of member must be joint"; secJoint = val;},
+        get firJoint() {return this._firJoint;},
+        set firJoint(val) {if (!t.joint.isPrototypeOf(val)) throw "firJoint of member must be joint"; this._firJoint = val;},
+        get secJoint() {return this._secJoint;},
+        set secJoint(val) {if (!t.joint.isPrototypeOf(val)) throw "secJoint of member must be joint"; this._secJoint = val;},
         known: function() {
             var known = true;
-            try (this.magnitude) catch (e) {known = false};
+            if (this.magnitude === undefined) known = false;
             return known;
         },
         isAttached: function(joint) {
@@ -162,7 +179,7 @@
             return Math.sqrt(Math.pow(xDis, 2), Math.pow(yDis, 2));
         },
         // Geometric angle from joint, does not consider internal force
-        angle: function(fromJoint) {
+        getAngle: function(fromJoint) {
             if (!this.isAttached(fromJoint)) throw "Joint not attached to member";
             var xToOtherJoint = this.otherJoint(fromJoint).x - fromJoint.x;
             var yToOtherJoint = this.otherJoint(fromJoint).y - fromJoint.y;
@@ -171,7 +188,7 @@
         forceOn: function(joint) {
             var force = Object.create(t.force);
             force.magnitude = this.magnitude;
-            var angle = this.angle(joint);
+            var angle = this.getAngle(joint);
             // Consider angle of internal force
             if (this.compression === true) force.angle = angle;
             else {
@@ -186,34 +203,37 @@
     };
 
     t.force = {
-        get magnitude() {return magnitude;},
+        get magnitude() {return this._magnitude;},
         set magnitude(val) {
             if (!_.isFinite(val)) throw "Magnitude of force must be finite number";
             if (val < 0) {
-                magnitude = -val;
+                this._magnitude = -val;
                 angle += Math.PI;
-            } else magnitude = val;
+            } else this._magnitude = val;
         },
-        get angle() {return angle;},
+        get angle() {return this._angle;},
         set angle(val) {
             if (!_.isFinite(val)) throw "Angle of force must be finite number";
             // TODO: is there a smarter way than this? Is this necessary?
-            if (val < -Math.PI) angle = val + 2 * Math.PI;
-            else if (val > Math.PI) angle = val - 2 * Math.PI;
-            else angle = val;
+            if (val < -Math.PI) this._angle = val + 2 * Math.PI;
+            else if (val > Math.PI) this._angle = val - 2 * Math.PI;
+            else this._angle = val;
+        },
+        getAngle: function() { // Quack, quack
+            return this.angle;
         },
         // get joint() {return joint;},
         // set joint(val) {if (!t.joint.isPrototypeOf(val)) throw "Joint of force must be joint"; joint = val;}
         known: function() {
             var known = true;
-            try {this.magnitude; this.angle;} catch (e) {known = true;}
+            if (this.magnitude === undefined || this.angle === undefined) known = false;
             return known;
         },
         x: function() {
-            return Math.cos(angle) * magnitude;
+            return Math.cos(this.angle) * this.magnitude;
         },
         y: function() {
-            return Math.sin(angle) * magnitude;
+            return Math.sin(this.angle) * this.magnitude;
         },
         forceOn: function(joint) { // Quack, quack
             // TODO: enforce that force must be connected to joint to be known, added to joint, etc with joint property
