@@ -49,7 +49,7 @@
 	console.log(mem2.known());
 	console.log(mem3.known());
 	
-	// Solve
+	// Solve, NOTE: truss library is also logging matrix, known vector, and solution vector!
 	truss.solve();
 	
 	// Tree unknown members now known
