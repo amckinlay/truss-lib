@@ -1,3 +1,9 @@
+// TODO: consider making braces just forces
+// TODO: consider being able to solve for force magnitudes AND angles
+// TODO: consider making a force's angle be a unit Stylvester vector instead
+// TODO: solve truss with list of force?
+// TODO: solve truss with list of unknowns?
+
 (function() {
 	// Forming truss below
 	var joint1 = Object.create(t.joint);
@@ -45,31 +51,32 @@
 	truss.addJoint(joint3);
 	
 	// Three unknown members
-	console.log(mem1.known());
-	console.log(mem2.known());
-	console.log(mem3.known());
+	console.log("Member 1 known?", mem1.known());
+	console.log("Member 2 known?", mem2.known());
+	console.log("Member 3 known?", mem3.known());
 	
 	// Solve, NOTE: truss library is also logging matrix, known vector, and solution vector!
+	console.log("Solving truss")
 	truss.solve();
 	
 	// Tree unknown members now known
-	console.log(mem1.known());
-	console.log(mem2.known());
-	console.log(mem3.known());
+	console.log("Member 1 known?", mem1.known());
+	console.log("Member 2 known?", mem2.known());
+	console.log("Member 3 known?", mem3.known());
 	
 	// We can not get their magnitudes and compression/tension bool
-	console.log(mem1.magnitude);
-	console.log(mem2.magnitude);
-	console.log(mem3.magnitude);
-	console.log(mem1.compression);
-	console.log(mem2.compression);
-	console.log(mem3.compression);
+	console.log("What is the magnitude of the inernal force in member 1?", mem1.magnitude);
+	console.log("What is the magnitude of the inernal force in member 2?", mem2.magnitude);
+	console.log("What is the magnitude of the inernal force in member 3?", mem3.magnitude);
+	console.log("Is member 1 in compression?", mem1.compression);
+	console.log("Is member 2 in compression?", mem2.compression);
+	console.log("Is member 3 in compression?", mem3.compression);
 	
 	// Also, the bracing forces are now known
-	console.log(brace1.x());
-	console.log(brace1.y());
-	console.log(brace2.x());
-	console.log(brace2.y());
-	console.log(brace3.x());
-	console.log(brace3.y());
+	console.log("What is brace 1's x-component force?", brace1.x());
+	console.log("What is brace 1's y-component force?", brace1.y());
+	console.log("What is brace 2's x-component force?", brace2.x());
+	console.log("What is brace 2's y-component force?", brace2.y());
+	console.log("What is brace 3's x-component force?", brace3.x());
+	console.log("What is brace 3's y-component force?", brace3.y());
 })();
